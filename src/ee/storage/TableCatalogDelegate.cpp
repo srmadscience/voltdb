@@ -31,6 +31,7 @@
 #include "common/types.h"
 #include "common/TupleSchemaBuilder.h"
 #include "common/ValueFactory.hpp"
+#include "common/StackTrace.h"
 
 #include "expressions/expressionutil.h"
 #include "expressions/functionexpression.h"
@@ -158,12 +159,10 @@ bool TableCatalogDelegate::getIndexScheme(catalog::Table const& catalogTable,
 
     // The catalog::Index object now has a list of columns that are to be
     // used
-    if (catalogIndex.columns().size() == (size_t) 0) {
-        VOLT_ERROR("Index '%s' in table '%s' does not declare any columns"
-                   " to use",
-                   catalogIndex.name().c_str(),
-                   catalogTable.name().c_str());
-        return false;
+    if (!catalogIndex.migrating() && catalogIndex.columns().size() == 0) {
+       VOLT_ERROR("Index '%s' in table '%s' does not declare any columns to use",
+             catalogIndex.name().c_str(), catalogTable.name().c_str());
+       return false;
     }
 
     auto indexedExpressions = TableIndex::simplyIndexColumns();
@@ -176,11 +175,8 @@ bool TableCatalogDelegate::getIndexScheme(catalog::Table const& catalogTable,
     // the catalogs, we'll use the index attribute to make sure we put them
     // in the right order
     index_columns.resize(catalogIndex.columns().size());
-    std::map<std::string, catalog::ColumnRef*>::const_iterator colrefIterator;
-    for (colrefIterator = catalogIndex.columns().begin();
-         colrefIterator != catalogIndex.columns().end();
-         colrefIterator++) {
-        auto catalogColref = colrefIterator->second;
+    for (auto const& col : catalogIndex.columns()) {
+        auto const* catalogColref = col.second;
         assert(catalogColref->index() >= 0);
         index_columns[catalogColref->index()] = catalogColref->column()->index();
     }
@@ -197,6 +193,7 @@ bool TableCatalogDelegate::getIndexScheme(catalog::Table const& catalogTable,
                                predicate,
                                catalogIndex.unique(),
                                catalogIndex.countable(),
+                               catalogIndex.migrating(),
                                expressionsAsText,
                                predicateAsText,
                                schema);
@@ -379,22 +376,16 @@ Table* TableCatalogDelegate::constructTableFromCatalog(catalog::Database const& 
     // all unique indices afterwards, and all the non-unique indices at the end.
     std::deque<TableIndexScheme> indexes;
     TableIndexScheme pkeyIndex_scheme;
-    std::map<std::string, TableIndexScheme>::const_iterator indexIterator;
-    for (indexIterator = index_map.begin(); indexIterator != index_map.end();
-         indexIterator++) {
-        // Exclude the primary key
-        if (indexIterator->second.name.compare(pkeyIndexId) == 0) {
-            pkeyIndex_scheme = indexIterator->second;
-        // Just add it to the list
-        }
-        else {
-            if (indexIterator->second.unique) {
-                indexes.push_front(indexIterator->second);
-            }
-            else {
-                indexes.push_back(indexIterator->second);
-            }
-        }
+    for (auto const& indexIterator : index_map) {
+       auto const& indexScheme = indexIterator.second;
+       // Exclude the primary key
+       if (indexScheme.name.compare(pkeyIndexId) == 0) {
+          pkeyIndex_scheme = indexScheme;
+       } else if (indexScheme.unique) {
+          indexes.push_front(indexScheme);
+       } else {
+          indexes.push_back(indexScheme);
+       }
     }
 
     // partition column:
@@ -424,8 +415,8 @@ Table* TableCatalogDelegate::constructTableFromCatalog(catalog::Database const& 
         tableAllocationTargetSize = 1024 * 64;
       }
     }
-    VOLT_DEBUG("Creating %s %s as %s, type: %d, export:%s", m_materialized?"VIEW":"TABLE",
-               tableName.c_str(), isReplicated?"REPLICATED":"PARTITIONED", catalogTable.tableType(), tableIsExportOnly ? "true":"false");
+    VOLT_DEBUG("Creating %s %s as %s, type: %d", m_materialized?"VIEW":"TABLE",
+               tableName.c_str(), isReplicated?"REPLICATED":"PARTITIONED", catalogTable.tableType());
     Table* table = TableFactory::getPersistentTable(databaseId, tableName,
                                                     schema, columnNames, m_signatureHash,
                                                     m_materialized,
@@ -749,6 +740,12 @@ TableCatalogDelegate::processSchemaChanges(catalog::Database const& catalogDatab
         StreamedTable* newStreamedTable = dynamic_cast<StreamedTable*>(m_table);
         StreamedTable* existingStreamedTable = dynamic_cast<StreamedTable*>(existingTable);
         if (existingStreamedTable && newStreamedTable) {
+            int64_t seqNo;
+            size_t streamBytesUsed;
+            existingStreamedTable->getExportStreamPositions(seqNo, streamBytesUsed);
+            ExportTupleStream* wrapper = new ExportTupleStream(*existingStreamedTable->getWrapper());
+            newStreamedTable->setWrapper(wrapper);
+            newStreamedTable->setExportStreamPositions(seqNo, streamBytesUsed);
             migrateExportViews(catalogTable.views(), existingStreamedTable, newStreamedTable, delegatesByName);
         }
     }

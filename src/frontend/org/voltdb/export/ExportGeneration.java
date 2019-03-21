@@ -36,6 +36,7 @@ import org.apache.zookeeper_voltpatches.KeeperException;
 import org.apache.zookeeper_voltpatches.WatchedEvent;
 import org.apache.zookeeper_voltpatches.Watcher;
 import org.apache.zookeeper_voltpatches.ZooDefs.Ids;
+import org.hsqldb_voltpatches.TimeToLiveVoltDB;
 import org.hsqldb_voltpatches.lib.StringUtil;
 import org.voltcore.logging.VoltLogger;
 import org.voltcore.messaging.BinaryPayloadMessage;
@@ -57,11 +58,13 @@ import org.voltdb.catalog.CatalogMap;
 import org.voltdb.catalog.Connector;
 import org.voltdb.catalog.ConnectorTableInfo;
 import org.voltdb.catalog.Table;
+import org.voltdb.catalog.TimeToLive;
 import org.voltdb.common.Constants;
 import org.voltdb.exportclient.ExportClientBase;
 import org.voltdb.iv2.SpInitiator;
 import org.voltdb.messaging.LocalMailbox;
 import org.voltdb.sysprocs.ExportControl.OperationMode;
+import org.voltdb.utils.CatalogUtil;
 
 import com.google_voltpatches.common.collect.ImmutableList;
 import com.google_voltpatches.common.collect.Sets;
@@ -153,6 +156,7 @@ public class ExportGeneration implements Generation {
             final ExportDataProcessor processor,
             File[] files, List<Pair<Integer, Integer>> localPartitionsToSites,
             long genId) {
+
         List<Integer> onDiskPartitions = new ArrayList<Integer>();
 
         /*
@@ -248,6 +252,7 @@ public class ExportGeneration implements Generation {
         boolean createdSources = false;
         List<String> exportedTables = new ArrayList<>();
         for (Connector conn : connectors) {
+
             for (ConnectorTableInfo ti : conn.getTableinfo()) {
                 Table table = ti.getTable();
                 if (table.getTabletype() == TableType.STREAM_VIEW_ONLY.get()) {
@@ -650,6 +655,10 @@ public class ExportGeneration implements Generation {
             final long genId) throws IOException {
         ExportDataSource source = new ExportDataSource(this, adFile, localPartitionsToSites, processor, genId);
         adFilePartitions.add(source.getPartitionId());
+        int migrateBatchSize = CatalogUtil.getPersistentMigrateBatchSize(source.getTableName());
+        if (migrateBatchSize > 0) {
+            source.setupMigrateRowsDeleter(migrateBatchSize);
+        }
         if (exportLog.isDebugEnabled()) {
             exportLog.debug("Creating " + source.toString() + " for " + adFile + " bytes " + source.sizeInBytes());
         }
@@ -711,6 +720,10 @@ public class ExportGeneration implements Generation {
                                 table.getColumns(),
                                 table.getPartitioncolumn(),
                                 m_directory.getPath());
+                        int migrateBatchSize = CatalogUtil.getPersistentMigrateBatchSize(key);
+                        if (migrateBatchSize > 0) {
+                            exportDataSource.setupMigrateRowsDeleter(migrateBatchSize);
+                        }
                         if (exportLog.isDebugEnabled()) {
                             exportLog.debug("Creating ExportDataSource for table in catalog " + key
                                     + " partition " + partition + " site " + siteId);
@@ -825,9 +838,10 @@ public class ExportGeneration implements Generation {
 
 
     @Override
-    public void pushExportBuffer(int partitionId, String signature,
+    public void pushExportBuffer(int partitionId, String tableName,
             long startSequenceNumber, long committedSequenceNumber,
             int tupleCount, long uniqueId, long genId, ByteBuffer buffer, boolean sync) {
+
         Map<String, ExportDataSource> sources = m_dataSourcesByPartition.get(partitionId);
 
         if (sources == null) {
@@ -839,7 +853,6 @@ public class ExportGeneration implements Generation {
             return;
         }
 
-        String tableName = tableNameFromSignature(signature);
         ExportDataSource source = sources.get(tableName);
         if (source == null) {
             /*
@@ -882,20 +895,17 @@ public class ExportGeneration implements Generation {
     }
 
     @Override
-    public void updateInitialExportStateToSeqNo(int partitionId, String signature,
+    public void updateInitialExportStateToSeqNo(int partitionId, String streamName,
                                                 boolean isRecover, boolean isRejoin,
                                                 Map<Integer, Pair<Long, Long>> sequenceNumberPerPartition,
                                                 boolean isLowestSite) {
-
-        String tableName = tableNameFromSignature(signature);
-
         // pre-iv2, the truncation point is the snapshot transaction id.
         // In iv2, truncation at the per-partition txn id recorded in the snapshot.
         List<ListenableFuture<?>> tasks = new ArrayList<>();
         Map<String, ExportDataSource> dataSource = m_dataSourcesByPartition.get(partitionId);
         // It is possible that for restore the partitions have changed, in which case what we are doing is silly
         if (dataSource != null) {
-            ExportDataSource source = dataSource.get(tableName);
+            ExportDataSource source = dataSource.get(streamName);
             if (source != null) {
                 Pair<Long, Long> usoAndSeq = sequenceNumberPerPartition.get(partitionId);
                 if (usoAndSeq != null) {
@@ -1087,22 +1097,6 @@ public class ExportGeneration implements Generation {
     @Override
     public String toString() {
         return "Export Generation";
-    }
-
-    /**
-     * Return table name from signature
-     *
-     * The method handles both signatures (e.g. "name|vv") and
-     * straight table names (e.g. "name")
-     *
-     * FIXME: needs EE change to drop signatures
-     *
-     * @param signature
-     * @return table name
-     */
-    public static String tableNameFromSignature(String signature) {
-        int idx = signature.indexOf("|");
-        return idx == -1 ? signature : signature.substring(0,  idx);
     }
 
     @Override

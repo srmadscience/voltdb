@@ -37,10 +37,13 @@ import org.voltcore.messaging.HostMessenger;
 import org.voltcore.utils.DBBPool;
 import org.voltcore.utils.Pair;
 import org.voltdb.CatalogContext;
+import org.voltdb.ClientInterface;
 import org.voltdb.ExportStatsBase;
 import org.voltdb.ExportStatsBase.ExportStatsRow;
 import org.voltdb.RealVoltDB;
+import org.voltdb.SimpleClientResponseAdapter;
 import org.voltdb.StatsSelector;
+import org.voltdb.StoredProcedureInvocation;
 import org.voltdb.VoltDB;
 import org.voltdb.VoltTable;
 import org.voltdb.catalog.CatalogMap;
@@ -165,7 +168,8 @@ public class ExportManager
     private int m_exportTablesCount = 0;
     private int m_connCount = 0;
     private boolean m_startPolling = false;
-
+    private SimpleClientResponseAdapter m_adapter;
+    private ClientInterface m_ci;
 
     public class ExportStats extends ExportStatsBase {
         List<ExportStatsRow> m_stats;
@@ -707,7 +711,7 @@ public class ExportManager
      */
     public static void pushEndOfStream(
             int partitionId,
-            String signature) {
+            String tableName) {
     }
     /*
      * This method pulls double duty as a means of pushing export buffers
@@ -718,7 +722,7 @@ public class ExportManager
      */
     public static void pushExportBuffer(
             int partitionId,
-            String signature,
+            String tableName,
             long startSequenceNumber,
             long committedSequenceNumber,
             long tupleCount,
@@ -738,7 +742,7 @@ public class ExportManager
                 }
                 return;
             }
-            generation.pushExportBuffer(partitionId, signature,
+            generation.pushExportBuffer(partitionId, tableName,
                     startSequenceNumber, committedSequenceNumber,
                     (int)tupleCount, uniqueId, genId, buffer, sync);
         } catch (Exception e) {
@@ -779,5 +783,19 @@ public class ExportManager
         if (m_generation.get() != null) {
            m_generation.get().processStreamControl(exportStream, exportTargets, operation, results);
         }
+    }
+
+    public void clientInterfaceStarted(ClientInterface clientInterface) {
+        m_ci = clientInterface;
+        m_adapter = new SimpleClientResponseAdapter(ClientInterface.MIGRATE_ROWS_DELETE_CID,
+                                                    "MigrateRowsAdapter");
+        m_ci.bindAdapter(m_adapter, null);
+    }
+
+    public void invokeMigrateRowsDelete(StoredProcedureInvocation spi, int partition, SimpleClientResponseAdapter.Callback cb) {
+        Long handle = m_adapter.registerCallback(cb);
+        spi.setClientHandle(handle);
+        m_ci.createTransaction(m_adapter.connectionId(), spi, false, true, false, partition, spi.getSerializedSize(),
+                System.nanoTime());
     }
 }

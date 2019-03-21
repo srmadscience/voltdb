@@ -119,9 +119,8 @@ static std::map<int, ClusterCtx> s_clusterMap;
 class MockExportTupleStream : public ExportTupleStream {
 public:
     MockExportTupleStream(VoltDBEngine* engine, CatalogId partitionId, int64_t siteId,
-                          int64_t generation, std::string signature, const std::string &tableName,
-                          const std::vector<std::string> &columnNames)
-        : ExportTupleStream(partitionId, siteId, generation, signature, tableName, columnNames),
+                          int64_t generation, const std::string &tableName)
+        : ExportTupleStream(partitionId, siteId, generation, tableName),
           m_engine(engine)
     { }
 
@@ -206,7 +205,7 @@ public:
 
         m_exportSchema = TupleSchema::createTupleSchemaForTest(m_exportColumnType, m_exportColumnLength, m_exportColumnAllowNull);
 
-        m_exportStream = new MockExportTupleStream((VoltDBEngine*)this, 1, 1, 0, "sign", tableName, m_exportColumnName);
+        m_exportStream = new MockExportTupleStream((VoltDBEngine*)this, 1, 1, 0, tableName);
         m_conflictStreamedTable.reset(TableFactory::getStreamedTableForTest(0,
                 tableName,
                 m_exportSchema,
@@ -422,7 +421,7 @@ public:
         columnIndices.push_back(0);
         TableIndexScheme scheme = TableIndexScheme("the_index", HASH_TABLE_INDEX,
                                                    columnIndices, TableIndex::simplyIndexColumns(),
-                                                   true, true, m_otherSchemaWithIndex);
+                                                   true, true, false, m_otherSchemaWithIndex);
         TableIndex *index = TableIndexFactory::getInstance(scheme);
         m_otherTableWithIndex->addIndex(index);
 
@@ -430,7 +429,7 @@ public:
             ReplicaProcessContextSwitcher switcher;
             scheme = TableIndexScheme("the_index", HASH_TABLE_INDEX,
                                       columnIndices, TableIndex::simplyIndexColumns(),
-                                      true, true, m_otherSchemaWithIndexReplica);
+                                      true, true, false, m_otherSchemaWithIndexReplica);
             TableIndex *replicaIndex = TableIndexFactory::getInstance(scheme);
             m_otherTableWithIndexReplica->addIndex(replicaIndex);
         }
@@ -708,7 +707,7 @@ public:
         firstColumnIndices.push_back(0); // TINYINT
         TableIndexScheme scheme = TableIndexScheme("first_unique_index", HASH_TABLE_INDEX,
                                                    firstColumnIndices, TableIndex::simplyIndexColumns(),
-                                                   true, true, m_schema);
+                                                   true, true, false, m_schema);
         TableIndex *firstIndex = TableIndexFactory::getInstance(scheme);
         m_table->addIndex(firstIndex);
 
@@ -716,7 +715,7 @@ public:
             ReplicaProcessContextSwitcher switcher;
             scheme = TableIndexScheme("first_unique_index", HASH_TABLE_INDEX,
                                       firstColumnIndices, TableIndex::simplyIndexColumns(),
-                                      true, true, m_schemaReplica);
+                                      true, true, false, m_schemaReplica);
             TableIndex *firstReplicaIndex = TableIndexFactory::getInstance(scheme);
             m_tableReplica->addIndex(firstReplicaIndex);
         }
@@ -727,7 +726,7 @@ public:
         secondColumnIndices.push_back(4); // non-inline VARCHAR
         scheme = TableIndexScheme("second_unique_index", HASH_TABLE_INDEX,
                                   secondColumnIndices, TableIndex::simplyIndexColumns(),
-                                  true, true, m_schema);
+                                  true, true, false, m_schema);
         TableIndex *secondIndex = TableIndexFactory::getInstance(scheme);
         m_table->addIndex(secondIndex);
 
@@ -735,7 +734,7 @@ public:
             ReplicaProcessContextSwitcher switcher;
             scheme = TableIndexScheme("second_unique_index", HASH_TABLE_INDEX,
                                       secondColumnIndices, TableIndex::simplyIndexColumns(),
-                                      true, true, m_schemaReplica);
+                                      true, true, false, m_schemaReplica);
             TableIndex *secondReplicaIndex = TableIndexFactory::getInstance(scheme);
             m_tableReplica->addIndex(secondReplicaIndex);
         }
@@ -744,7 +743,7 @@ public:
         vector<int> thirdColumnIndices(1, 0);
         scheme = TableIndexScheme("third_index", HASH_TABLE_INDEX,
                                   secondColumnIndices, TableIndex::simplyIndexColumns(),
-                                  false, false, m_schema);
+                                  false, false, false, m_schema);
         TableIndex *thirdIndex = TableIndexFactory::getInstance(scheme);
         m_table->addIndex(thirdIndex);
     }
@@ -791,7 +790,7 @@ public:
         TableIndexScheme scheme = TableIndexScheme("UniqueIndex", HASH_TABLE_INDEX,
                                                     columnIndices,
                                                     TableIndex::simplyIndexColumns(),
-                                                    true, true, table->schema());
+                                                    true, true, false, table->schema());
         TableIndex *pkeyIndex = TableIndexFactory::TableIndexFactory::getInstance(scheme);
         assert(pkeyIndex);
         table->addIndex(pkeyIndex);
@@ -1425,7 +1424,7 @@ TEST_F(DRBinaryLogTest, DeleteWithUniqueIndexNoninlineVarchar) {
     columnIndices.push_back(4); // non-inline VARCHAR
     TableIndexScheme scheme = TableIndexScheme("the_index", HASH_TABLE_INDEX,
                                                columnIndices, TableIndex::simplyIndexColumns(),
-                                               true, true, m_schema);
+                                               true, true, false, m_schema);
     TableIndex *index = TableIndexFactory::getInstance(scheme);
     m_table->addIndex(index);
 
@@ -1433,7 +1432,7 @@ TEST_F(DRBinaryLogTest, DeleteWithUniqueIndexNoninlineVarchar) {
         ReplicaProcessContextSwitcher switcher;
         scheme = TableIndexScheme("the_index", HASH_TABLE_INDEX,
                                   columnIndices, TableIndex::simplyIndexColumns(),
-                                  true, true, m_schemaReplica);
+                                  true, true, false, m_schemaReplica);
         TableIndex *replicaIndex = TableIndexFactory::getInstance(scheme);
         m_tableReplica->addIndex(replicaIndex);
     }

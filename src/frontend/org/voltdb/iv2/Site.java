@@ -1419,11 +1419,15 @@ public class Site implements Runnable, SiteProcedureConnection, SiteSnapshotConn
     }
 
     @Override
-    public boolean deleteMigratedRows(String tableName,
+    public boolean deleteMigratedRows(long txnid,
+                                      long spHandle,
+                                      long uniqueId,
+                                      String tableName,
                                       long deletableTxnId,
                                       int maxRowCount)
     {
-        return m_ee.deleteMigratedRows(tableName, deletableTxnId, maxRowCount);
+        return m_ee.deleteMigratedRows(txnid, spHandle, uniqueId,
+                tableName, deletableTxnId, maxRowCount, getNextUndoToken(m_currentTxnId));
     }
 
     @Override
@@ -1495,7 +1499,7 @@ public class Site implements Runnable, SiteProcedureConnection, SiteSnapshotConn
                     m_partitionId,
                     catalogTable.getTypeName());
             // assign the stats to the other partition's value
-            ExportManager.instance().updateInitialExportStateToSeqNo(m_partitionId, catalogTable.getSignature(),
+            ExportManager.instance().updateInitialExportStateToSeqNo(m_partitionId, catalogTable.getTypeName(),
                     false, true, tableEntry.getValue(), m_sysprocContext.isLowestSiteId());
         }
 
@@ -1870,5 +1874,11 @@ public class Site implements Runnable, SiteProcedureConnection, SiteSnapshotConn
 
     public ExecutionEngine getExecutionEngine() {
         return m_ee;
+    }
+
+    @Override
+    public ProcedureRunner getMigrateProcRunner(String procName, Table catTable, Column column,
+            ComparisonOperation op) {
+        return m_loadedProcedures.getMigrateProcRunner(procName, catTable, column, op);
     }
 }

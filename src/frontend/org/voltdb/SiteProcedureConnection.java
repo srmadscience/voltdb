@@ -199,6 +199,10 @@ public interface SiteProcedureConnection {
                                                      Column column,
                                                      ComparisonOperation op);
 
+    public ProcedureRunner getMigrateProcRunner(String procName,
+                                                     Table catTable,
+                                                     Column column,
+                                                     ComparisonOperation op);
     /**
      * @return SystemProcedureExecutionContext
      */
@@ -235,7 +239,8 @@ public interface SiteProcedureConnection {
                              Integer partitionId,
                              String tableSignature);
 
-    public boolean deleteMigratedRows(String tableName, long deletableTxnId, int maxRowCount);
+    public boolean deleteMigratedRows(long txnid, long spHandle, long uniqueId,
+            String tableName, long deletableTxnId, int maxRowCount);
 
     public VoltTable[] getStats(StatsSelector selector, int[] locators,
                                 boolean interval, Long now);

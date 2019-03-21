@@ -570,7 +570,10 @@ public class MpRoSite implements Runnable, SiteProcedureConnection
     }
 
     @Override
-    public boolean deleteMigratedRows(String tableName,
+    public boolean deleteMigratedRows(long txnid,
+                                      long spHandle,
+                                      long uniqueId,
+                                      String tableName,
                                       long deletableTxnId,
                                       int maxRowCount)
     {
@@ -750,5 +753,11 @@ public class MpRoSite implements Runnable, SiteProcedureConnection
     @Override
     public void notifyOfSnapshotNonce(String nonce, long snapshotSpHandle) {
         // TODO Auto-generated method stub
+    }
+
+    @Override
+    public ProcedureRunner getMigrateProcRunner(String procName, Table catTable, Column column,
+            ComparisonOperation op) {
+        return null;
     }
 }
