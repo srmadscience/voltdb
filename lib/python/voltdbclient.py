@@ -45,6 +45,7 @@ except ImportError, e:
     pyjks_available = False
     pyjks_exception = e
 
+from OpenSSL import crypto
 
 decimal.getcontext().prec = 38
 

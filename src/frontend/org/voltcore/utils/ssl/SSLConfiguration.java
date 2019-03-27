@@ -123,7 +123,7 @@ public class SSLConfiguration {
     /**
      * Creates the key managers required to initiate the {@link SSLContext}, using a JKS keystore as an input.
      *
-     * @param filepath - the path to the JKS keystore.
+     * @param filepath - the path to the keystore.
      * @param keystorePassword - the keystore's password.
      * @param keyPassword - the key's passsword.
      * @return {@link KeyManager} array that will be used to initiate the {@link SSLContext}.
@@ -131,9 +131,12 @@ public class SSLConfiguration {
      */
     private static KeyManagerFactory createKeyManagers(String filepath, String keystorePassword, String keyPassword)
             throws FileNotFoundException, KeyStoreException, IOException, NoSuchAlgorithmException, CertificateException, UnrecoverableKeyException {
-        KeyStore keyStore = KeyStore.getInstance("JKS");
-        try (InputStream keyStoreIS = new FileInputStream(filepath)) {
-            keyStore.load(keyStoreIS, keystorePassword.toCharArray());
+        KeyStore keyStore;
+        // try load the cert with PKCS12 format then JKS, give up if neither works
+        try {
+            keyStore = getKeyStore("PKCS12", filepath, keystorePassword);
+        } catch (CertificateException|NoSuchAlgorithmException e) {
+            keyStore = getKeyStore("JKS", filepath, keystorePassword);
         }
         KeyManagerFactory kmf = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
         kmf.init(keyStore, keyPassword.toCharArray());
@@ -143,7 +146,7 @@ public class SSLConfiguration {
     /**
      * Creates the trust managers required to initiate the {@link SSLContext}, using a JKS keystore as an input.
      *
-     * @param filepath - the path to the JKS keystore.
+     * @param filepath - the path to the keystore.
      * @param keystorePassword - the keystore's password.
      * @return {@link TrustManager} array, that will be used to initiate the {@link SSLContext}.
      * @throws Exception
@@ -151,13 +154,24 @@ public class SSLConfiguration {
     private static TrustManagerFactory createTrustManagers(String filepath, String keystorePassword)
             throws KeyStoreException, FileNotFoundException,
             IOException, NoSuchAlgorithmException, CertificateException {
-        KeyStore trustStore = KeyStore.getInstance("JKS");
-        try (InputStream trustStoreIS = new FileInputStream(filepath)) {
-            trustStore.load(trustStoreIS, keystorePassword.toCharArray());
+        KeyStore trustStore;
+        try {
+            trustStore = getKeyStore("PKCS12", filepath, keystorePassword);
+        } catch (CertificateException|NoSuchAlgorithmException e) {
+            trustStore = getKeyStore("JKS", filepath, keystorePassword);
         }
         TrustManagerFactory trustFactory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
         trustFactory.init(trustStore);
         return trustFactory;
+    }
+
+    private static KeyStore getKeyStore(String type, String filepath, String password)
+            throws KeyStoreException, IOException, CertificateException, NoSuchAlgorithmException {
+        KeyStore keyStore = KeyStore.getInstance(type);
+        try (InputStream keyStoreIS = new FileInputStream(filepath)) {
+            keyStore.load(keyStoreIS, password.toCharArray());
+        }
+        return keyStore;
     }
 
     public static class SslConfig {
