@@ -549,6 +549,11 @@ public class FunctionForVoltDB extends FunctionSQL {
         parseList = m_def.getParamParseList();
         parseListAlt = m_def.getParamParseListAlt();
         parameterArg = m_def.getTypeParameter();
+        sora = m_def.getSora();
+    }
+
+    public static char getSora() {
+        return sora;
     }
 
     @Override
@@ -1006,7 +1011,7 @@ public class FunctionForVoltDB extends FunctionSQL {
             syntax[idx++] = Tokens.QUESTION;
         }
         syntax[syntax.length - 1] = Tokens.CLOSEBRACKET;
-        return new FunctionDescriptor(functionName, returnType, functionId, -1, parameterTypes, syntax);
+        return new FunctionDescriptor(functionName, returnType, functionId, -1, parameterTypes, syntax, sora);
     }
 
     /**

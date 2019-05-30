@@ -2150,7 +2150,9 @@ public class ParserDQL extends ParserBase {
             default :
                 if (isCoreReservedKey()) {
                     throw unexpectedToken();
-                } 
+                } else if (FunctionForVoltDB.newVoltDBFunction(token.tokenString) != null && FunctionForVoltDB.getSora() == 'a') {
+                    return readAggregate();
+                }
         }
 
         return readColumnOrFunctionExpression();
