@@ -1893,6 +1893,7 @@ public class RealVoltDB implements VoltDBInterface, RestoreAgent.Callback, HostM
     class DailyLogTask implements Runnable {
         @Override
         public void run() {
+            logLicensingInfo();
             m_myHostId = m_messenger.getHostId();
             hostLog.info(String.format("Host id of this node is: %d", m_myHostId));
             hostLog.info("URL of deployment info: " + m_config.m_pathToDeployment);
@@ -1906,6 +1907,24 @@ public class RealVoltDB implements VoltDBInterface, RestoreAgent.Callback, HostM
             // daily maintenance
             EnterpriseMaintenance em = EnterpriseMaintenance.get();
             if (em != null) { em.dailyMaintenaceTask(); }
+        }
+    }
+
+    private void logLicensingInfo() {
+        SimpleDateFormat formatter = new SimpleDateFormat();
+
+        hostLog.info("LICENSE INFORMATION: " + m_licenseApi.getLicenseType() + " license issued by VoltDB to " + m_licenseApi.licensee() + " on "
+                + formatter.format(m_licenseApi.issued()));
+        hostLog.info("LICENSE KEY: " + m_licenseApi.getSignature());
+        hostLog.info("LICENSE EXPIRES: " + formatter.format(m_licenseApi.expires()));
+        hostLog.info("LICENSE CONSTRAINTS: " + m_licenseApi.maxHostcount() + " nodes");
+
+        if(m_licenseApi.isUnrestricted()) {
+            hostLog.info("LICENSE FEATURES: Unrestricted");
+        }
+        else {
+            hostLog.info("LICENSE FEATURES: " + "commandLoggingEnabled=" + m_licenseApi.isCommandLoggingAllowed()
+                + ", activeActiveDREnabled=" + m_licenseApi.isDrActiveActiveAllowed() + ", isDatabaseReplicationAllowed=" + m_licenseApi.isDrReplicationAllowed());
         }
     }
 
@@ -2337,6 +2356,7 @@ public class RealVoltDB implements VoltDBInterface, RestoreAgent.Callback, HostM
         return m_iv2Initiators.size() - (m_eligibleAsLeader ? 1 : 0);
     }
 
+    @Override
     public boolean isClusterComplete() {
         return (m_config.m_hostCount == m_messenger.getLiveHostIds().size());
     }
