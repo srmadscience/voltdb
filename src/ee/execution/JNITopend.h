@@ -76,7 +76,7 @@ public:
 
     int32_t callJavaUserDefinedFunction();
     int32_t callJavaUserDefinedAggregateStart();
-    // int32_t callJavaUserDefinedAggregateAssemble();
+    int32_t callJavaUserDefinedAggregateAssemble();
     // int32_t callJavaUserDefinedAggregateWorkerEnd();
     // int32_t callJavaUserDefinedAggregateCoordinatorEnd();
     void resizeUDFBuffer(int32_t size);
@@ -103,7 +103,7 @@ private:
     jmethodID m_decodeBase64AndDecompressToBytesMID;
     jmethodID m_callJavaUserDefinedFunctionMID;
     jmethodID m_callJavaUserDefinedAggregateStartMID;
-    // jmethodID m_callJavaUserDefinedAggregateAssembleMID;
+    jmethodID m_callJavaUserDefinedAggregateAssembleMID;
     // jmethodID m_callJavaUserDefinedAggregateWorkerEndMID;
     // jmethodID m_callJavaUserDefinedAggregateCoordinatorEndMID;
     jmethodID m_resizeUDFBufferMID;
