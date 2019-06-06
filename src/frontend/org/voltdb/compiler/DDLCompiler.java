@@ -94,7 +94,6 @@ import org.voltdb.parser.SQLLexer;
 import org.voltdb.parser.SQLParser;
 import org.voltdb.planner.AbstractParsedStmt;
 import org.voltdb.planner.ParsedSelectStmt;
-import org.voltdb.planner.PlanningErrorException;
 import org.voltdb.types.ConstraintType;
 import org.voltdb.types.ExpressionType;
 import org.voltdb.types.IndexType;
@@ -1460,10 +1459,6 @@ public class DDLCompiler {
                     break;
                 }
             }
-        } else if (migratingIndexName != null) {
-            throw new PlanningErrorException(
-                    String.format("Cannot create a migrating index \"%s\" on a non-TTL table \"%s\"",
-                            migratingIndexName, name));
         }
 
         // Warn user if DR table don't have any unique index.
