@@ -1216,6 +1216,7 @@ public abstract class AbstractParsedStmt {
     private AbstractExpression parseAggregationExpression(VoltXMLElement exprNode) {
         String type = exprNode.attributes.get("optype");
         String user_aggregate_id = exprNode.attributes.get("user_aggregate_id");
+        String function_name = exprNode.attributes.get("name");
         ExpressionType exprType = ExpressionType.get(type);
 
         if (exprType == ExpressionType.INVALID) {
@@ -1240,7 +1241,7 @@ public abstract class AbstractParsedStmt {
             exprType = ExpressionType.AGGREGATE_COUNT_STAR;
         }
 
-        AggregateExpression expr = new AggregateExpression(exprType, user_aggregate_id);
+        AggregateExpression expr = new AggregateExpression(exprType, user_aggregate_id, function_name);
         expr.setLeft(childExpr);
 
         String node;
@@ -2383,10 +2384,17 @@ public abstract class AbstractParsedStmt {
     public Collection<String> calculateUDFDependees() {
         List<String> answer = new ArrayList<>();
         Collection<AbstractExpression> fCalls = findAllSubexpressionsOfClass(FunctionExpression.class);
+        Collection<AbstractExpression> aCalls = findAllSubexpressionsOfClass(AggregateExpression.class);
         for (AbstractExpression fCall : fCalls) {
             FunctionExpression fexpr = (FunctionExpression)fCall;
             if (fexpr.isUserDefined()) {
                 answer.add(fexpr.getFunctionName());
+            }
+        }
+        for (AbstractExpression aCall : aCalls) {
+            AggregateExpression aexpr = (AggregateExpression)aCall;
+            if (aexpr.isUserDefined()) {
+                answer.add(aexpr.getFunctionName());
             }
         }
         return answer;
