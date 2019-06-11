@@ -204,12 +204,10 @@ namespace {
 int32_t getAllocationSizeForObject(int length) {
     static const int32_t NVALUE_LONG_OBJECT_LENGTHLENGTH = 4;
     static const int32_t MAX_ALLOCATION = ThreadLocalPool::POOLED_MAX_VALUE_LENGTH +
-                                          NVALUE_LONG_OBJECT_LENGTHLENGTH +
-                                          CompactingPool::FIXED_OVERHEAD_PER_ENTRY();
+                                          NVALUE_LONG_OBJECT_LENGTHLENGTH;
 
     int length_to_fit = length +
-                        NVALUE_LONG_OBJECT_LENGTHLENGTH +
-                        CompactingPool::FIXED_OVERHEAD_PER_ENTRY();
+                        NVALUE_LONG_OBJECT_LENGTHLENGTH;
 
     // The -1 and repeated shifting and + 1 are part of the rounding algorithm
     // that produces the nearest power of 2 greater than or equal to the value.
