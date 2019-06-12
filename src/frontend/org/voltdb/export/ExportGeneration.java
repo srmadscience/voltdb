@@ -1042,11 +1042,11 @@ public class ExportGeneration implements Generation {
         }
     }
 
-    public void cleanupStaleBuffers() {
+    public void cleanupStaleBuffers(StreamStartAction action) {
         synchronized(m_dataSourcesByPartition) {
             for (Map<String, ExportDataSource> partitionDataSourceMap : m_dataSourcesByPartition.values()) {
                 for (ExportDataSource source : partitionDataSourceMap.values()) {
-                    source.cleanupStaleBuffers();
+                    source.cleanupStaleBuffers(action);
                 }
             }
         }

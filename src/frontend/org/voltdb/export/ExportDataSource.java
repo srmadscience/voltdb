@@ -447,7 +447,7 @@ public class ExportDataSource implements Comparable<ExportDataSource> {
     // In truncateExportToSeqNo() we try to cleanup stale PBD segments. If it isn't invoked
     // due to empty snapshot or missing stream in snapshot, this is our last chance to clean
     // stale PBD segments.
-    public void cleanupStaleBuffers() {
+    public void cleanupStaleBuffers(StreamStartAction action) {
         m_es.execute(new Runnable() {
             public void run() {
                 // *Created* generation id is either from EDS constructor or from export buffer
@@ -457,6 +457,7 @@ public class ExportDataSource implements Comparable<ExportDataSource> {
                     if (m_committedBuffers.deleteStaleBlocks(generationIdCreated)) {
                         // Stale export buffers are deleted , re-create the tracker.
                         m_gapTracker = m_committedBuffers.scanForGap();
+                        resetStateInRejoinOrRecover(0L, action);
                     }
                 } catch (IOException e) {
                     VoltDB.crashLocalVoltDB("Error while trying to delete stale PBD segments older than generation " +
