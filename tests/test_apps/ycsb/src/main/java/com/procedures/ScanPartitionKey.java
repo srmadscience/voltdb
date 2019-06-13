@@ -26,12 +26,12 @@ import org.voltdb.SQLStmt;
 import org.voltdb.VoltProcedure;
 import org.voltdb.VoltTable;
 
-public class Scan extends VoltProcedure {
+public class ScanPartitionKey extends VoltProcedure {
 
-    public final SQLStmt getBddStmt = new SQLStmt("SELECT value FROM Store WHERE keyspace = ? AND key >= ? LIMIT ?");
-    public final SQLStmt getUnbddStmt = new SQLStmt("SELECT value FROM Store WHERE keyspace = ? LIMIT ?");
+    public final SQLStmt getBddStmt = new SQLStmt("SELECT value, key FROM Store WHERE keyspace = ? AND key >= ? ORDER BY key, keyspace LIMIT ?");
+    public final SQLStmt getUnbddStmt = new SQLStmt("SELECT value, key FROM Store WHERE keyspace = ? ORDER BY key, keyspace LIMIT ?");
 
-    public VoltTable[] run(byte[] keyspace, String partKey, byte[] rangeMin, int count) throws Exception
+    public VoltTable[] run(String partKey, byte[] keyspace, byte[] rangeMin, int count) throws Exception
     {
         if (rangeMin != null)
         {

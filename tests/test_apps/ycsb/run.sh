@@ -48,16 +48,17 @@ function clean() {
 function srccompile() {
     mkdir -p obj
     javac -classpath $CLASSPATH -d obj \
-        src/com/yahoo/ycsb/db/*.java \
-        src/com/procedures/*.java
+        src/main/java/com/yahoo/ycsb/db/*.java \
+        src/main/java/org/voltdb/sortedvolttable/*.java \
+        src/main/java/com/procedures/*.java
     # stop if compilation fails
     if [ $? != 0 ]; then exit; fi
 }
 
 function jars() {
     srccompile
-    jar cf ycsb-procs.jar -C obj com/procedures
-    jar cf $CLIENTNAME.jar -C obj com/yahoo/ycsb/db
+    jar cf ycsb-procs.jar -C obj com/procedures 
+    jar cf $CLIENTNAME.jar -C obj com/yahoo/ycsb/db -C obj org/voltdb/sortedvolttable
     if [ $? != 0 ]; then exit; fi
 }
 
@@ -70,7 +71,7 @@ function server() {
 # load schema and procedures
 function init() {
     if [ ! -f ycsb-procs.jar ]; then jars; fi
-    $VOLTDB_BIN/sqlcmd < ycsb_ddl.sql
+    $VOLTDB_BIN/sqlcmd --servers=$HOST < ycsb_ddl.sql
 }
 
 # run the client that drives the example
@@ -103,6 +104,9 @@ if [ $# != 0 ]; then
     elif [ $1 == "workload" ]; then
         WORKLOAD=${2:-"workloadb"}; 
         workload;
+    elif [ $1 == "init" ]; then
+        HOST=${2:-"localhost"}; 
+        init;
     elif [ $# -gt 1 ]; then
         help;
         exit;

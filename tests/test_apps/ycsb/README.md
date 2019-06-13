@@ -1,67 +1,70 @@
-# VoltDB Binding for YCSB
 
-This section describes how to run YCSB (Yahoo Cloud Serving Benchmark) on VoltDB.
 
-Set Up YCSB
--------------------
-First you need to download YCSB, which may be done as follows:
+## Quick Start
 
-		wget https://github.com/brianfrankcooper/YCSB/releases/download/0.10.0/ycsb-0.10.0.tar.gz
-		tar -xfvz ycsb-0.10.0.tar.gz
+This README describes how to run YCSB on VoltDB. 
 
-If you want to run YCSB with customized zipfian distribution workload, you can instead do:
+Here at VoltDB we use 4 machines for testing - 1 client and a 3 node cluster.
 
-		wget https://github.com/xinjiacs/ycsb-0.1.4/releases/download/ycsb-0.1.4.1/ycsb-0.1.4-zipfian.tar.gz
-		tar -xf ycsb-0.1.4-zipfian.tar.gz
+### 1. Install Java on all the machines involved.
 
-Next, you need to set:
+By default VoltDB uses [Oracle Java](https://www.oracle.com/technetwork/java/javase/downloads/index.html)
 
-		export YCSB_HOME="<directory where you extracted the above tarball>"
+### 2. Install Maven
 
-Start VoltDB Server
---------------------
-To start or add a server to your cluster, invoke run.sh with the "server" parameter, passing the name of the leader host as the second parameter:
+Maven is a pre-requisite for YCSB. It can be downloaded [here](https://maven.apache.org/download.cgi).
+    
+### 3. Install and configure VoltDB
 
-		./run.sh server [leader]
+If you don't already have a copy of VoltDB you should [download](https://www.voltdb.com/try-voltdb/)  and install it. 
+Make sure you know the hostnames/ip addresses of all the nodes in the cluster and that [port 21212](https://docs.voltdb.com/AdminGuide/HostConfigPortOpts.php) is open for your client.
 
-For example, to start a cluster with 3 nodes (host0(leader), host1, host2), set hostcount="3" in deployment.xml. Then type the following command on those hosts:
+A representative VoltDB cluster would have 3 nodes and a '[K factor](https://docs.voltdb.com/UsingVoltDB/KSafeEnable.php)' of 1. This configuration allows work to continue if a server dies.
 
-		./run.sh server host0
+Note: If you contact us we can give you access to AWS Cloudformation scripts and a matching AMI to create a cluster for you.
 
-If leader host is not provided, by default "localhost" is used.
+Install the VoltDB binaries on all the machines - we need JAR files from them to compile our client.
 
-You can also specify other server configurations such as hostcount, sitesperhost or kfactor in deployment.xml.
+### 4. InstallYCSB
 
-Lastly, let VoltDB load the schema and stored procedures:
+Download the [latest YCSB](https://github.com/brianfrankcooper/YCSB/releases/latest) file. Follow the instructions.
 
-		./run.sh init
+   	
+### 5. Compile VoltDB's jar files
 
-Run Workload
---------------------
-First, add all VoltDB server nodes in your cluster to "voltdb.servers" in base.properties. In this file, you may also tune other parameters such as the number of client threads to use, and the number and size of fields for each key.
+We need two jar files - `ycsb-procs.jar` which contains the stored procedures we run in VoltDB and `ycsb_client.jar`, which contains our YCSB interface. They can be created by cd'ing the Voltdb subdirectory, setting YCSB_HOME to the location of the YCSB release and then calling:
 
-Then, before running the workload, you need to "load" data first:
+    ./run.sh jars
 
-		./run.sh load
+### 6. Create the YCSB schema in VoltDB
 
-You can adjust loading parameters such as the number of keys to insert in load.properties.
+VoltDB's YCSB schema includes tables and stored procedures, which are in ycsb-procs.jar. To create the database you call the DDL script from the same directory it lives in. In the example below the database is on the same machine. If running against a cluster the name or ip address of any member of the cluster will suffice
 
-Now you can run a workload by passing the name of the workload file following the "workload" parameter. For example, to run workload A:
+    cd YCSB
+    cd voltdb
+    sqlcmd --servers=localhost < ycsb_ddl.sql
 
-		./run.sh workload workloada
+Once this has done you should be able to log into the VoltDB web GUI at 'http://localhost:8080' (or whatever the correct ip address is) and see the tables and procedures we use.
 
-If no file name is provided, "workload" uses the YCSB core "workloadb" which mixes 95% reads with 5% updates. Please make sure specified workload file exists in $YCSB_HOME/workloads.
 
-The zipfian distribution workload parameter is set as key with a double value greater than 0, by default is 0.99: zipfianconstant.
+### 7. Configure VoltDB parameters
 
-Other run.sh Actions
----------------------
-- *run.sh* : start the server on localhost
-- *run.sh server [leader]* : start or add the server to cluster. Default: localhost
-- *run.sh srccompile* : compile java clients and stored procedures
-- *run.sh jars* : compile java clients and stored procedures into two Java jarfiles
-- *run.sh init* : load the schema and stored procedures to server
-- *run.sh load* : load YCSB data to server
-- *run.sh workload [file]* : run a workload. Default: workloadb
-- *run.sh clean* : remove compilation and runtime artifacts, as well as the jars
-- *run.sh help* : show help messages
+
+Edit the file base.properties in the VoltDB subdirectory
+
+- `voltdb.servers`
+   	- This should be a comma delimited list of servers that make up the VoltDB cluster.
+   
+- `voltdb.user`
+   	- Username. Only needed if username/passwords enabled.
+- `voltdb.password`
+   	- Password. Only needed if username/passwords enabled.
+- `voltdb.ratelimit`
+   	- Maximum number of transactions allowed per second. Note that as you increase the workload you eventually get to a point where throwing more and more transactions at a given configuration is counterproductive. For the three node configuration we mentioned above 70000 would be a good starting point for this value.
+   	
+   
+### 8. Run YCSB
+
+See: [https://github.com/brianfrankcooper/YCSB/wiki/Running-a-Workload](https://github.com/brianfrankcooper/YCSB/wiki/Running-a-Workload)
+
+
